@@ -1077,22 +1077,28 @@ const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
     return[{label:"No prazo",value:s.ok,cor:"#639922"},{label:"Atencao",value:s.atencao,cor:"#BA7517"},{label:"Atraso",value:s.atraso,cor:"#E24B4A"}].filter(d=>d.value>0);
   },[projetosAtivos]);
 
-  function atualizarProjeto(id,campos){set(ref(database,"projetos/"+id), {...projetos.find(p=>p.id===id),...campos});
-    setProjetos(ps=>ps.map(p=>{
-      if(p.id!==id)return p;
-      const novo={...p,...campos};
-      if(detalhe&&detalhe.id===id)setDetalhe(novo);
-      return novo;
+function atualizarProjeto(id,campos){
+  setProjetos(ps=>ps.map(p=>{
+    if(p.id!==id)return p;
+    const novo={...p,...campos};
+    if(detalhe&&detalhe.id===id)setDetalhe(novo);
+    set(ref(database,"projetos/"+id),novo);
+    return novo;
+  }));
+}
     }));
   }
 
   function moverEtapa(id,novaEtapa,trilhoDev){
-    setProjetos(ps=>ps.map(p=>{
-      if(p.id!==id)return p;
-      const jaEsta=p.historico.find(h=>h.etapa===novaEtapa);
-      const novo={...p,etapa:novaEtapa,trilhoDev:trilhoDev!=null?trilhoDev:p.trilhoDev,historico:jaEsta?p.historico:[...p.historico,{etapa:novaEtapa,data:TODAY}]};
-      if(detalhe&&detalhe.id===id)setDetalhe(novo);
-      return novo;
+  setProjetos(ps=>ps.map(p=>{
+    if(p.id!==id)return p;
+    const jaEsta=p.historico.find(h=>h.etapa===novaEtapa);
+    const novo={...p,etapa:novaEtapa,trilhoDev:trilhoDev!=null?trilhoDev:p.trilhoDev,historico:jaEsta?p.historico:[...p.historico,{etapa:novaEtapa,data:TODAY}]};
+    if(detalhe&&detalhe.id===id)setDetalhe(novo);
+    set(ref(database,"projetos/"+id),novo);
+    return novo;
+  }));
+}
     }));
   }
 
@@ -1116,9 +1122,13 @@ const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
   }
 
   function criarProjeto(form){
-    const trilhoDev=CATEGORIA_TRILHO[form.categoria];
-    setProjetos(p=>[...p,{id:nextId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}}]);
-    setNextId(n=>n+1);setModal(null);
+  const trilhoDev=CATEGORIA_TRILHO[form.categoria];
+  const novo={id:nextId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
+  setProjetos(p=>[...p,novo]);
+  set(ref(database,"projetos/"+nextId),novo);
+  setNextId(n=>n+1);
+  setModal(null);
+}
   }
 
   function confirmarTrilho(projetoId,trilhoEscolhido){
