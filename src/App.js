@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { database, ref, set, onValue } from "./firebase";
 
 const PERGUNTAS = {
   busca:["Qual foi a fonte da demanda?","Qual dor ou oportunidade foi identificada?","Essa demanda e recorrente ou pontual?","Existe evidencia que suporte essa demanda?","Qual o publico impactado?"],
@@ -1022,7 +1023,8 @@ function ViewMatrizInovacao(){
 ];
 
 export default function App(){
-  const [projetos,setProjetos]=useState(INIT_PROJ);
+  const [projetos,setProjetos]=useState([]);
+const [carregando,setCarregando]=useState(true);
   const [view,setView]=useState("pipeline");
   const [modal,setModal]=useState(null);
   const [detalhe,setDetalhe]=useState(null);
@@ -1034,7 +1036,21 @@ export default function App(){
   const [filtroCategoria,setFiltroCategoria]=useState("todas");
   const [mostrarRep,setMostrarRep]=useState(false);
 
-  const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
+  useEffect(()=>{
+  const projetosRef=ref(database,"projetos");
+  onValue(projetosRef,(snapshot)=>{
+    const data=snapshot.val();
+    if(data){
+      const lista=Object.values(data);
+      setProjetos(lista);
+    } else {
+      setProjetos(INIT_PROJ);
+      set(ref(database,"projetos"),Object.fromEntries(INIT_PROJ.map(p=>[p.id,p])));
+    }
+    setCarregando(false);
+  });
+},[]);
+const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
   const projetosRep=useMemo(()=>projetos.filter(p=>!!p.reprovado),[projetos]);
   const projetosFiltrados=useMemo(()=>{
     const base=mostrarRep?projetos:projetosAtivos;
@@ -1063,7 +1079,7 @@ export default function App(){
     return[{label:"No prazo",value:s.ok,cor:"#639922"},{label:"Atencao",value:s.atencao,cor:"#BA7517"},{label:"Atraso",value:s.atraso,cor:"#E24B4A"}].filter(d=>d.value>0);
   },[projetosAtivos]);
 
-  function atualizarProjeto(id,campos){
+  function atualizarProjeto(id,campos){set(ref(database,"projetos/"+id), {...projetos.find(p=>p.id===id),...campos});
     setProjetos(ps=>ps.map(p=>{
       if(p.id!==id)return p;
       const novo={...p,...campos};
