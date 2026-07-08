@@ -1031,7 +1031,7 @@ export default function App(){
   const [trilhoModal,setTrilhoModal]=useState(null);
   const [reprovModal,setReprovModal]=useState(null);
   const [renomearModal,setRenomearModal]=useState(null);
-  const [nextId,setNextId]=useState(3);
+ const [nextId,setNextId]=useState(Date.now());
   const [filtroCategoria,setFiltroCategoria]=useState("todas");
   const [mostrarRep,setMostrarRep]=useState(false);
 
@@ -1042,6 +1042,8 @@ useEffect(()=>{
     if(data){
       const lista=Object.values(data);
       setProjetos(lista);
+    } else {
+      setProjetos([]);
     }
   });
 },[]);
