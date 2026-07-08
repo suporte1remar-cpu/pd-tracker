@@ -1035,16 +1035,13 @@ export default function App(){
   const [filtroCategoria,setFiltroCategoria]=useState("todas");
   const [mostrarRep,setMostrarRep]=useState(false);
 
-  useEffect(()=>{
+useEffect(()=>{
   const projetosRef=ref(database,"projetos");
   onValue(projetosRef,(snapshot)=>{
     const data=snapshot.val();
     if(data){
       const lista=Object.values(data);
       setProjetos(lista);
-    } else {
-      setProjetos(INIT_PROJ);
-      set(ref(database,"projetos"),Object.fromEntries(INIT_PROJ.map(p=>[p.id,p])));
     }
   });
 },[]);
