@@ -1085,10 +1085,7 @@ function atualizarProjeto(id,campos){
     return novo;
   }));
 }
-    }));
-  }
-
-  function moverEtapa(id,novaEtapa,trilhoDev){
+ function moverEtapa(id,novaEtapa,trilhoDev){
   setProjetos(ps=>ps.map(p=>{
     if(p.id!==id)return p;
     const jaEsta=p.historico.find(h=>h.etapa===novaEtapa);
@@ -1098,9 +1095,6 @@ function atualizarProjeto(id,campos){
     return novo;
   }));
 }
-    }));
-  }
-
   function handleMover(projeto,proximaEtapa){
     if(["identificacao","analise_tecnica"].includes(proximaEtapa)){
       setRenomearModal({projeto,proximaEtapa});return;
@@ -1120,36 +1114,36 @@ function atualizarProjeto(id,campos){
     setRenomearModal(null);
   }
 
-  function criarProjeto(form){
+ function criarProjeto(form){
   const trilhoDev=CATEGORIA_TRILHO[form.categoria];
-  const novo={id:nextId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
+  const novoId=Date.now();
+  const novo={id:novoId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
+  set(ref(database,"projetos/"+novoId),novo);
   setProjetos(p=>[...p,novo]);
-  set(ref(database,"projetos/"+nextId),novo);
-  setNextId(n=>n+1);
   setModal(null);
 }
-  }
-
   function confirmarTrilho(projetoId,trilhoEscolhido){
     moverEtapa(projetoId,TRILHOS_DEV[trilhoEscolhido].etapas[0].id,trilhoEscolhido);
     setTrilhoModal(null);
   }
 
-  function salvarMatriz(pid,scores){
-    setProjetos(ps=>ps.map(p=>{
-      if(p.id!==pid)return p;
-      const novo={...p,matriz:scores};
-      if(detalhe&&detalhe.id===pid)setDetalhe(novo);
-      return novo;
-    }));
-    setMatrizModal(null);
-  }
+ function salvarMatriz(pid,scores){
+  setProjetos(ps=>ps.map(p=>{
+    if(p.id!==pid)return p;
+    const novo={...p,matriz:scores};
+    if(detalhe&&detalhe.id===pid)setDetalhe(novo);
+    set(ref(database,"projetos/"+pid),novo);
+    return novo;
+  }));
+  setMatrizModal(null);
+}
 
   function reprovarProjeto(projeto,form){
-    atualizarProjeto(projeto.id,{reprovado:{...form,etapa:projeto.etapa,data:TODAY}});
-    setReprovModal(null);
-  }
-
+  const novo={...projeto,reprovado:{...form,etapa:projeto.etapa,data:TODAY}};
+  set(ref(database,"projetos/"+projeto.id),novo);
+  atualizarProjeto(projeto.id,{reprovado:{...form,etapa:projeto.etapa,data:TODAY}});
+  setReprovModal(null);
+}
   const kanbanEtapas=[...ETAPAS_PRE_DEV,{id:"_dev",label:"Desenvolvimento",isDevGroup:true,gate:false},ETAPA_IMP];
   const TABS=[["pipeline","Pipeline"],["dashboard","Dashboard"],["calendario","Calendario"],["cronograma","Cronograma"],["inovacao","Matriz Inovacao"],["processos","Melhoria"]];
 
@@ -1389,7 +1383,11 @@ function atualizarProjeto(id,campos){
               onMover={handleMover}
               onAbrirMatriz={p=>setMatrizModal(p)}
               onEscolherTrilho={p=>setTrilhoModal(p)}
-              onExcluir={id=>{setProjetos(ps=>ps.filter(p=>p.id!==id));setDetalhe(null);}}
+              onExcluir={id=>{
+  setProjetos(ps=>ps.filter(p=>p.id!==id));
+  set(ref(database,"projetos/"+id),null);
+  setDetalhe(null);
+}}
               onAtualizar={atualizarProjeto}
               onReprovar={p=>setReprovModal(p)}
               onReativar={id=>atualizarProjeto(id,{reprovado:null})}
