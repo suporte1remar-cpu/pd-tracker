@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { database, ref, set, onValue } from "./firebase";
+import { database, ref, set, onValue } from "./firebase"; from "./firebase";
 
 const PERGUNTAS = {
   busca:["Qual foi a fonte da demanda?","Qual dor ou oportunidade foi identificada?","Essa demanda e recorrente ou pontual?","Existe evidencia que suporte essa demanda?","Qual o publico impactado?"],
