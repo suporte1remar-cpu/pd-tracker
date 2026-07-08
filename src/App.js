@@ -1024,7 +1024,6 @@ function ViewMatrizInovacao(){
 
 export default function App(){
   const [projetos,setProjetos]=useState([]);
-const [carregando,setCarregando]=useState(true);
   const [view,setView]=useState("pipeline");
   const [modal,setModal]=useState(null);
   const [detalhe,setDetalhe]=useState(null);
@@ -1047,7 +1046,6 @@ const [carregando,setCarregando]=useState(true);
       setProjetos(INIT_PROJ);
       set(ref(database,"projetos"),Object.fromEntries(INIT_PROJ.map(p=>[p.id,p])));
     }
-    setCarregando(false);
   });
 },[]);
 const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
