@@ -298,10 +298,12 @@ function FormularioEtapa({etapaId,respostas,onChange}){
   const [local,setLocal]=useState(respostas||{});
   const timers=useRef({});
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ setLocal(respostas||{}); },[etapaId]);
 
   useEffect(()=>{
-    return ()=>{ Object.values(timers.current).forEach(t=>clearTimeout(t)); };
+    const timersAtuais=timers.current;
+    return ()=>{ Object.values(timersAtuais).forEach(t=>clearTimeout(t)); };
   },[]);
 
   function handleLocalChange(i,v){
