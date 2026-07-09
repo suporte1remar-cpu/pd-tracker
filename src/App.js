@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { database, ref, set, onValue } from "./firebase";
 
 const PERGUNTAS = {
@@ -295,7 +295,27 @@ function Fld({label,value}){
 }
 function FormularioEtapa({etapaId,respostas,onChange}){
   const pergs=pergEtapa(etapaId);
-  const pct=pctRespostas(respostas,etapaId);
+  const [local,setLocal]=useState(respostas||{});
+  const timers=useRef({});
+
+  useEffect(()=>{ setLocal(respostas||{}); },[etapaId]);
+
+  useEffect(()=>{
+    return ()=>{ Object.values(timers.current).forEach(t=>clearTimeout(t)); };
+  },[]);
+
+  function handleLocalChange(i,v){
+    setLocal(prev=>({...prev,[i]:v}));
+    if(timers.current[i])clearTimeout(timers.current[i]);
+    timers.current[i]=setTimeout(()=>{ onChange(i,v); },600);
+  }
+
+  function handleBlur(i,v){
+    if(timers.current[i])clearTimeout(timers.current[i]);
+    onChange(i,v);
+  }
+
+  const pct=pctRespostas(local,etapaId);
   if(!pergs.length)return<p style={{fontSize:12,color:"#999"}}>Sem perguntas para esta etapa.</p>;
   return(
     <div>
@@ -310,8 +330,8 @@ function FormularioEtapa({etapaId,respostas,onChange}){
             <label style={{display:"block",fontSize:12,color:"#666",marginBottom:3}}>
               <span style={{color:"#E24B4A",marginRight:3}}>*</span>{q}
             </label>
-            <textarea value={respostas[i]||""} onChange={e=>onChange(i,e.target.value)} placeholder="Sua resposta..."
-              style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:6,border:"1px solid "+((respostas[i]||"").trim()?"#ccc":"#E24B4A55"),background:"#fafafa",color:"#1a1a1a",fontSize:13,fontFamily:"inherit",minHeight:55,resize:"vertical"}}/>
+            <textarea value={local[i]||""} onChange={e=>handleLocalChange(i,e.target.value)} onBlur={e=>handleBlur(i,e.target.value)} placeholder="Sua resposta..."
+              style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:6,border:"1px solid "+((local[i]||"").trim()?"#ccc":"#E24B4A55"),background:"#fafafa",color:"#1a1a1a",fontSize:13,fontFamily:"inherit",minHeight:55,resize:"vertical"}}/>
           </div>
         ))}
       </div>
@@ -696,7 +716,7 @@ function NovoProjetoModal({onSave,onClose}){
         ):aba==="formulario"?(
           <div>
             <p style={{margin:"0 0 10px",fontSize:12,fontWeight:500,color:"#555"}}>Etapa: <strong>{etAtual?etAtual.label:""}</strong></p>
-            <FormularioEtapa etapaId={projeto.etapa} respostas={resps} onChange={handleResp}/>
+            <FormularioEtapa key={projeto.etapa} etapaId={projeto.etapa} respostas={resps} onChange={handleResp}/>
             {concluida&&<div style={{padding:"8px 12px",background:"#EAF3DE",borderRadius:6,marginTop:8}}><p style={{margin:0,fontSize:12,color:"#3B6D11",fontWeight:500}}>Todas as perguntas respondidas</p></div>}
           </div>
         ):(
@@ -1017,13 +1037,12 @@ function ViewMatrizInovacao(){
       )}
     </div>
   );
-}const INIT_PROJ=[
-  {id:1,nome:"Importacao de Raltegravir",categoria:"manipulacao",trilhoDev:"materia-prima",etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:"",fonte:"",prazoLimite:"",reprovado:null,formRespostas:{}},
-  {id:2,nome:"MIAU",categoria:"sistema",trilhoDev:"sistema",etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:"",fonte:"",prazoLimite:"",reprovado:null,formRespostas:{}},
-];
+}
 
 export default function App(){
   const [projetos,setProjetos]=useState([]);
+  const [carregando,setCarregando]=useState(true);
+  const [erroConexao,setErroConexao]=useState(false);
   const [view,setView]=useState("pipeline");
   const [modal,setModal]=useState(null);
   const [detalhe,setDetalhe]=useState(null);
@@ -1031,21 +1050,27 @@ export default function App(){
   const [trilhoModal,setTrilhoModal]=useState(null);
   const [reprovModal,setReprovModal]=useState(null);
   const [renomearModal,setRenomearModal]=useState(null);
- const [nextId,setNextId]=useState(Date.now());
   const [filtroCategoria,setFiltroCategoria]=useState("todas");
   const [mostrarRep,setMostrarRep]=useState(false);
 
 useEffect(()=>{
   const projetosRef=ref(database,"projetos");
-  onValue(projetosRef,(snapshot)=>{
+  const unsubscribe=onValue(projetosRef,(snapshot)=>{
     const data=snapshot.val();
     if(data){
-      const lista=Object.values(data);
+      const lista=Object.values(data).filter(Boolean);
       setProjetos(lista);
     } else {
       setProjetos([]);
     }
+    setCarregando(false);
+    setErroConexao(false);
+  },(error)=>{
+    console.error("Erro ao ler projetos do Firebase:",error);
+    setCarregando(false);
+    setErroConexao(true);
   });
+  return ()=>unsubscribe();
 },[]);
 const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
   const projetosRep=useMemo(()=>projetos.filter(p=>!!p.reprovado),[projetos]);
@@ -1076,12 +1101,18 @@ const projetosAtivos=useMemo(()=>projetos.filter(p=>!p.reprovado),[projetos]);
     return[{label:"No prazo",value:s.ok,cor:"#639922"},{label:"Atencao",value:s.atencao,cor:"#BA7517"},{label:"Atraso",value:s.atraso,cor:"#E24B4A"}].filter(d=>d.value>0);
   },[projetosAtivos]);
 
+function salvarNoFirebase(id,dados){
+  set(ref(database,"projetos/"+id),dados).catch(err=>{
+    console.error("Erro ao salvar projeto no Firebase:",err);
+  });
+}
+
 function atualizarProjeto(id,campos){
   setProjetos(ps=>ps.map(p=>{
     if(p.id!==id)return p;
     const novo={...p,...campos};
     if(detalhe&&detalhe.id===id)setDetalhe(novo);
-    set(ref(database,"projetos/"+id),novo);
+    salvarNoFirebase(id,novo);
     return novo;
   }));
 }
@@ -1091,7 +1122,7 @@ function atualizarProjeto(id,campos){
     const jaEsta=p.historico.find(h=>h.etapa===novaEtapa);
     const novo={...p,etapa:novaEtapa,trilhoDev:trilhoDev!=null?trilhoDev:p.trilhoDev,historico:jaEsta?p.historico:[...p.historico,{etapa:novaEtapa,data:TODAY}]};
     if(detalhe&&detalhe.id===id)setDetalhe(novo);
-    set(ref(database,"projetos/"+id),novo);
+    salvarNoFirebase(id,novo);
     return novo;
   }));
 }
@@ -1116,9 +1147,9 @@ function atualizarProjeto(id,campos){
 
  function criarProjeto(form){
   const trilhoDev=CATEGORIA_TRILHO[form.categoria];
-  const novoId=Date.now();
+  const novoId="p_"+Date.now();
   const novo={id:novoId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
-  set(ref(database,"projetos/"+novoId),novo);
+  salvarNoFirebase(novoId,novo);
   setProjetos(p=>[...p,novo]);
   setModal(null);
 }
@@ -1132,7 +1163,7 @@ function atualizarProjeto(id,campos){
     if(p.id!==pid)return p;
     const novo={...p,matriz:scores};
     if(detalhe&&detalhe.id===pid)setDetalhe(novo);
-    set(ref(database,"projetos/"+pid),novo);
+    salvarNoFirebase(pid,novo);
     return novo;
   }));
   setMatrizModal(null);
@@ -1140,16 +1171,29 @@ function atualizarProjeto(id,campos){
 
   function reprovarProjeto(projeto,form){
   const novo={...projeto,reprovado:{...form,etapa:projeto.etapa,data:TODAY}};
-  set(ref(database,"projetos/"+projeto.id),novo);
+  salvarNoFirebase(projeto.id,novo);
   atualizarProjeto(projeto.id,{reprovado:{...form,etapa:projeto.etapa,data:TODAY}});
   setReprovModal(null);
 }
   const kanbanEtapas=[...ETAPAS_PRE_DEV,{id:"_dev",label:"Desenvolvimento",isDevGroup:true,gate:false},ETAPA_IMP];
   const TABS=[["pipeline","Pipeline"],["dashboard","Dashboard"],["calendario","Calendario"],["cronograma","Cronograma"],["inovacao","Matriz Inovacao"],["processos","Melhoria"]];
 
+  if(carregando){
+    return(
+      <div style={{fontFamily:"Arial,sans-serif",minHeight:"100vh",background:"#f5f5f5",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <p style={{fontSize:14,color:"#999"}}>Carregando projetos...</p>
+      </div>
+    );
+  }
+
   return(
     <div style={{fontFamily:"Arial,sans-serif",color:"#1a1a1a",minHeight:"100vh",background:"#f5f5f5"}}>
-      <div style={{display:"flex",height:"100vh",flexDirection:"column"}}>
+      {erroConexao&&(
+        <div style={{background:"#FCEBEB",borderBottom:"1px solid #E24B4A",padding:"8px 16px",textAlign:"center"}}>
+          <span style={{fontSize:12,color:"#A32D2D"}}>Nao foi possivel conectar ao banco de dados. Suas alteracoes podem nao estar sendo salvas. Verifique as regras do Firebase Realtime Database.</span>
+        </div>
+      )}
+      <div style={{display:"flex",height:erroConexao?"calc(100vh - 33px)":"100vh",flexDirection:"column"}}>
         <div style={{padding:"1rem 1rem 0",flexShrink:0,background:"#fff",borderBottom:"1px solid #e0e0e0"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
             <div>
@@ -1385,7 +1429,7 @@ function atualizarProjeto(id,campos){
               onEscolherTrilho={p=>setTrilhoModal(p)}
               onExcluir={id=>{
   setProjetos(ps=>ps.filter(p=>p.id!==id));
-  set(ref(database,"projetos/"+id),null);
+  set(ref(database,"projetos/"+id),null).catch(err=>console.error("Erro ao excluir projeto:",err));
   setDetalhe(null);
 }}
               onAtualizar={atualizarProjeto}
