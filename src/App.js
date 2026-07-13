@@ -1146,14 +1146,20 @@ function atualizarProjeto(id,campos){
     moverEtapa(proj.id,prox,proj.trilhoDev);
     setRenomearModal(null);
   }
+const criandoRef = useRef(false)
 
  function criarProjeto(form){
+  if (criandoRef.current) return;
+  criandoRef.current = true;
+  
   const trilhoDev=CATEGORIA_TRILHO[form.categoria];
   const novoId="p_"+Date.now();
   const novo={id:novoId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
   salvarNoFirebase(novoId,novo);
   setProjetos(p=>[...p,novo]);
   setModal(null);
+
+    criandoRef.current = false;
 }
   function confirmarTrilho(projetoId,trilhoEscolhido){
     moverEtapa(projetoId,TRILHOS_DEV[trilhoEscolhido].etapas[0].id,trilhoEscolhido);
