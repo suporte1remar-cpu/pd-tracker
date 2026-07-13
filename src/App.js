@@ -558,7 +558,7 @@ function NovoProjetoModal({onSave,onClose}){
         </div>
       </div>
     </div>
-  );
+);
 }
 function SidePanel({projeto,onClose,onMover,onAbrirMatriz,onEscolherTrilho,onExcluir,onAtualizar,onReprovar,onReativar}){
   const cat=CATEGORIAS[projeto.categoria];
@@ -580,7 +580,6 @@ function SidePanel({projeto,onClose,onMover,onAbrirMatriz,onEscolherTrilho,onExc
   const resps=projeto.formRespostas&&projeto.formRespostas[projeto.etapa]?projeto.formRespostas[projeto.etapa]:{};
   const pctAtual=pctRespostas(resps,projeto.etapa);
   const concluida=etapaConcluida(resps,projeto.etapa);
-
   function salvarNome(){if(nomeTemp.trim())onAtualizar(projeto.id,{nome:nomeTemp.trim()});setEditNome(false);}
   function salvarDet(){onAtualizar(projeto.id,form);setEditDet(false);}
   function handleResp(i,v){
@@ -1062,7 +1061,13 @@ useEffect(()=>{
   const unsubscribe=onValue(projetosRef,(snapshot)=>{
     const data=snapshot.val();
     if(data){
+      const chaves=Object.keys(data);
       const lista=Object.values(data).filter(Boolean);
+      const ids=lista.map(p=>p.id);
+      const idsDuplicados=ids.filter((id,i)=>ids.indexOf(id)!==i);
+      // DEBUG TEMPORARIO - remover depois de identificar a causa da duplicacao
+      console.log("[DEBUG onValue] disparou as", new Date().toLocaleTimeString(), "| total:", lista.length, "| chaves Firebase:", chaves);
+      if(idsDuplicados.length) console.warn("[DEBUG onValue] IDs duplicados DENTRO do proprio snapshot:", idsDuplicados);
       setProjetos(lista);
     } else {
       setProjetos([]);
@@ -1158,7 +1163,6 @@ function criarProjeto(form){
   const novoId="p_"+Date.now();
   const novo={id:novoId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
   salvarNoFirebase(novoId,novo);
-  setProjetos(p=>[...p,novo]);
   setModal(null);
 
   setTimeout(()=>{ criandoRef.current = false; }, 800);
