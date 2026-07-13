@@ -508,7 +508,8 @@ function TrilhoModal({projeto,onEscolha,onClose}){
 }
 function NovoProjetoModal({onSave,onClose}){
   const [form,setForm]=useState({nome:"",categoria:"manipulacao",responsavel:"",fonte:"",prazoLimite:""});
-  const ok=form.nome.trim();
+  const [enviando,setEnviando]=useState(false);
+  const ok=form.nome.trim() && !enviando;
   const s=k=>v=>setForm(f=>({...f,[k]:v}));
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"1.5rem",zIndex:50}}>
@@ -550,15 +551,16 @@ function NovoProjetoModal({onSave,onClose}){
         </div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           <button onClick={onClose} style={{padding:"8px 16px",borderRadius:6,border:"1px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:13}}>Cancelar</button>
-          <button onClick={()=>ok&&onSave(form)} disabled={!ok}
+          <button onClick={()=>{ if(ok){ setEnviando(true); onSave(form); } }} disabled={!ok}
             style={{padding:"8px 16px",borderRadius:6,border:"none",background:ok?"#5E5280":"#ddd",color:ok?"#fff":"#999",cursor:ok?"pointer":"default",fontSize:13,fontWeight:500}}>
-            Criar projeto
+            {enviando?"Criando...":"Criar projeto"}
           </button>
         </div>
       </div>
     </div>
   );
-}function SidePanel({projeto,onClose,onMover,onAbrirMatriz,onEscolherTrilho,onExcluir,onAtualizar,onReprovar,onReativar}){
+}
+function SidePanel({projeto,onClose,onMover,onAbrirMatriz,onEscolherTrilho,onExcluir,onAtualizar,onReprovar,onReativar}){
   const cat=CATEGORIAS[projeto.categoria];
   const todas=etapasCompletas(projeto.trilhoDev);
   const idxAtual=todas.findIndex(e=>e.id===projeto.etapa);
@@ -1146,12 +1148,12 @@ function atualizarProjeto(id,campos){
     moverEtapa(proj.id,prox,proj.trilhoDev);
     setRenomearModal(null);
   }
-const criandoRef = useRef(false)
+const criandoRef = useRef(false);
 
- function criarProjeto(form){
+function criarProjeto(form){
   if (criandoRef.current) return;
   criandoRef.current = true;
-  
+
   const trilhoDev=CATEGORIA_TRILHO[form.categoria];
   const novoId="p_"+Date.now();
   const novo={id:novoId,nome:form.nome,categoria:form.categoria,trilhoDev,etapa:"busca",inicio:TODAY,historico:[{etapa:"busca",data:TODAY}],matriz:null,responsavel:form.responsavel||"",fonte:form.fonte||"",prazoLimite:form.prazoLimite||"",reprovado:null,formRespostas:{}};
@@ -1159,7 +1161,7 @@ const criandoRef = useRef(false)
   setProjetos(p=>[...p,novo]);
   setModal(null);
 
-    criandoRef.current = false;
+  setTimeout(()=>{ criandoRef.current = false; }, 800);
 }
   function confirmarTrilho(projetoId,trilhoEscolhido){
     moverEtapa(projetoId,TRILHOS_DEV[trilhoEscolhido].etapas[0].id,trilhoEscolhido);
@@ -1176,7 +1178,6 @@ const criandoRef = useRef(false)
   }));
   setMatrizModal(null);
 }
-
   function reprovarProjeto(projeto,form){
   const novo={...projeto,reprovado:{...form,etapa:projeto.etapa,data:TODAY}};
   salvarNoFirebase(projeto.id,novo);
